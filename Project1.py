@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import sys
 
 class project1:
-    def __init__(self, L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be):
-        self.R_0 = R_0
-        self.L_0 = L_0
-        self.M_0 = M_0
-        self.rho_0 = rho_0
-        self.T_0 = T_0
-        self.X, self.Y, self.Y3, self.Y4, self.Z, self.Z7Li, self.Z7Be = X, Y, Y3, Y4, Z, Z7Li, Z7Be        
+    def __init__(self, L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be):        
+        self.R_0 = R_0                          # initial radius
+        self.L_0 = L_0                          # initial luminosity
+        self.M_0 = M_0                          # initial mass
+        self.rho_0 = rho_0                      # initial density
+        self.T_0 = T_0                          # initial temperature
+
+        self.X, self.Y, self.Y3, self.Y4, self.Z, self.Z7Li, self.Z7Be = X, Y, Y3, Y4, Z, Z7Li, Z7Be # initial mass fractions        
         self.c = 299792458                      # Speed of light [m/s]
         self.sigma = 5.670367e-8                # Stefan-Boltzmann constant [J m^-2 s^-1 K^-4]
         self.k_b = 1.38064852e-23               # Boltzmann constant [m^2 kg s^-2 K^-1]
@@ -36,9 +37,16 @@ class project1:
         in the innit-function"""
 
         rho = rho/1000.0                           # Converting the density to cgs
-        R = np.log10(rho/((T/1e6)**3))          # As defined by Appendix D
+        R = np.log10(rho/((T/1e6)**3))             # As defined by Appendix D
         T = np.log10(T)        
-        return float(10**(self.f(R, T))/10.0)   # Returning the opacity in SI-units
+        
+        if ((T < 3.75) or (T > 8.7)):
+            print "You're outside the interpolation area. Chose smarter T-values dumb nuts!"
+            sys.exit()
+        if ((R < -8.0) or (R > 1.0)):
+            print "You're outside the interpolation area. Chose smarter R-values dumb nuts!"            
+            sys.exit()
+        return float(10**(self.f(R, T))/10.0)     # Returning the opacity in SI-units
 
     def PP1_chain(self, r33, Q33):
         """Last reaction in the PP1 chain. The first 2 reaction are the same
@@ -59,8 +67,8 @@ class project1:
         Takes arguments temperature and density, both in SI units, and returns
         the energy pr second pr kg [J kg^-1 s^-1]"""
 
-        MeVToJoule = 1.602e-13    # Converting MeV to Joule
-        NA = 6.022e23             # Avogadros number (dimensionless)
+        MeVToJoule = 1.602e-13          # Converting MeV to Joule
+        NA = 6.022e23                   # Avogadros number (dimensionless)
         T9 = T/1e9                      # Units used to find the lambda-values [K]
 
         # Proportionality functions [m^-3 s^-1]
@@ -149,77 +157,76 @@ class project1:
         """ 
         return rho/(self.u*self.m_u)*self.k_b*T + self.find_Pr(T)
 
-    def plot(self, M, r, V, L, T, rho, N):        
+    def plot(self, M, r, L, T, rho):        
         """Method which plots some of the achieved values"""
         
         #plotting the initial value sin subplots
         fig = plt.figure()
         ax = plt.subplot("221")
         ax.set_xlabel("Mass/$M_0$")
-        ax.set_ylabel("R/$R_{sun}$")
-        ax.plot(M[:N]/self.M_0, r[:N]/6.96e8)
+        ax.set_ylabel("R/$R_0$")
+        ax.plot(M/M[0], r/r[0])
 
         ax = plt.subplot("222")
         ax.set_xlabel("Mass/$M_0$")
-        ax.set_ylabel("L/$L_{sun}$")
-        ax.plot(M[:N]/self.M_0, L[:N]/L[0])
+        ax.set_ylabel("L/$L_0$")
+        ax.plot(M/M[0], L/L[0])
 
         ax = plt.subplot("223")
         ax.set_xlabel("Mass/$M_0$")
         ax.set_ylabel("T[MK]")
-        ax.plot(M[:N]/self.M_0, T[:N]/1e6)
+        ax.plot(M/M[0], T/1e6)
 
         ax = plt.subplot("224")
         ax.set_ylim(10**0, 10**1)
         ax.set_xlabel("Mass/$M_0$")
-        ax.set_ylabel("$\\rho/\\bar{\\rho}_{sun}$")
-        ax.plot(M[:N]/self.M_0, rho[:N]/1.408e3)
+        ax.set_ylabel("$\\rho/rho_0$")
+        ax.plot(M/M[0], rho/rho[0])
         plt.subplots_adjust(hspace = .5)
         plt.subplots_adjust(wspace = .5)
         plt.show()
 
     def DSS(self, dm, dm1, r, rho, M, E, L, T, K, P):
+        """ Method to calculate the variable step length. Takes the old and
+         the initial dm (dm and dm1) as input together with the variable values 
+        and returns the new dm
+        """      
+        
+        # Variable step length constant          
+        p = 1e-4;
 
-                """ Method to calculate the variable step length. Takes the old and
-                 the initial dm (dm and dm1) as input together with the variable values 
-                and returns the new dm
-                """      
-                
-                # Variable step length constant          
-                p = 1e-4;
-
-                # Establishing variables to perform the variable step length
-                dm_test = np.zeros(4)
-                dV = np.zeros(4) 
-                V_test = np.zeros(4)
-                
-                # Setting values for dV
-                dV[0] = dm*1.0/(4*np.pi*r**2*rho)
-                dV[1] = dm*(-self.G*M/(4*np.pi*r**4))
-                dV[2] = dm*E
-                dV[3] = dm*(-(3*K*L)/(256*np.pi**2*self.sigma*r**4*T**3))
-                
-                #setting value for V
-                V_test[0] = r
-                V_test[1] = P
-                V_test[2] = L
-                V_test[3] = T
-                
-                # setting values for the dm-tests            
-                dm_test[0] = abs(p*r/(1.0/(4*np.pi*r**2*rho)))
-                dm_test[1] = abs(p*P/((-self.G*M)/(4*np.pi*r**4)))
-                dm_test[2] = abs(p*L/E)
-                dm_test[3] = abs(p*T/(-(3*K*L)/(256*np.pi**2*self.sigma*r**4*T**3)))
-                
-                # checking if we need to change the step length
-                for j in range(len(dV)):           
-                    if (abs(dV[j])/V_test[j] > p):
-                        dm = -min(dm_test)                    
-                        break
-                    else:
-                        # reseting to initial dm
-                        dm = dm1
-                return dm
+        # Establishing variables to perform the variable step length
+        dm_test = np.zeros(4)
+        dV = np.zeros(4) 
+        V_test = np.zeros(4)
+        
+        # Setting values for dV
+        dV[0] = dm*1.0/(4*np.pi*r**2*rho)
+        dV[1] = dm*(-self.G*M/(4*np.pi*r**4))
+        dV[2] = dm*E
+        dV[3] = dm*(-(3*K*L)/(256*np.pi**2*self.sigma*r**4*T**3))
+        
+        #setting value for V
+        V_test[0] = r
+        V_test[1] = P
+        V_test[2] = L
+        V_test[3] = T
+        
+        # setting values for the dm-tests            
+        dm_test[0] = abs(p*r/(1.0/(4*np.pi*r**2*rho)))
+        dm_test[1] = abs(p*P/((-self.G*M)/(4*np.pi*r**4)))
+        dm_test[2] = abs(p*L/E)
+        dm_test[3] = abs(p*T/(-(3*K*L)/(256*np.pi**2*self.sigma*r**4*T**3)))
+        
+        # checking if we need to change the step length
+        for j in range(len(dV)):           
+            if (abs(dV[j])/V_test[j] > p):
+                dm = -min(dm_test)                    
+                break
+            else:
+                # reseting to initial dm
+                dm = dm1
+        return dm
 
     def print_int(self, i, dm, rho, L, M, r, P, E, T):    
         """Method that just prints the values every designated time step """
@@ -255,7 +262,6 @@ class project1:
         P = np.zeros(N)                 # Pressure
         M = np.zeros(N)                 # Mass
         E = np.zeros(N)                 # Power/volume
-        V = np.zeros(N)                 # Volume
         
         # Setting initial values for vectors
         L[0] = self.L_0
@@ -266,7 +272,7 @@ class project1:
         E[0] = self.energy_produced(self.T_0, self.rho_0)/self.rho_0
         P[0] = self.find_P(self.rho_0, self.T_0)
 
-        dm1 = dm                        # controle variable which is used to set dm back to it's original value
+        dm1 = dm                  # controle variable which is used to set dm back to it's original value
         for i in range(N-1):
             K = self.opacity(T[i], rho[i])          
             if dynamic_step_size == True:            
@@ -294,7 +300,7 @@ class project1:
             L[i+1] = L[i] + dm*E[i]
             T[i+1] = T[i] + dm*((-3*K*L[i])/(256*np.pi**2*self.sigma*r[i]**4*T[i]**3))
 
-            # Updating volume, density and energy 
+            # Updating density and energy 
             rho[i+1] = self.find_rho(P[i+1], T[i+1])
             E[i+1] = self.energy_produced(T[i+1], rho[i+1])/rho[i+1]
  
@@ -304,62 +310,74 @@ class project1:
 
         return r[:i], M[:i], L[:i], rho[:i], P[:i], T[:i], E[:i]
         
+if __name__ == "__main__":        
+    # Setting initial parameters in SI-units
+    L_sun = 3.846e26        # Sun's Luminosity [W]
+    R_sun = 6.96e8          # Sun's radius [m]
+    M_sun = 1.989e30        # Sun's mass [kg]
+    rho_star_avg = 1.408e3  # Sun's average density [kg m^-3]
+
+    #Setting initial parameters
+    L_0 = 1.0*L_sun
+    R_0 = 0.72*R_sun
+    M_0 = 0.8*M_sun
+    rho_0 =5.1*rho_star_avg
+    T_0 = 5.7e6
+
+    # Setting mass fractions
+    X = 0.7
+    Y3 = 1e-10
+    Y = 0.29
+    Y4 = Y - Y3
+    Z = 0.01
+    Z7Li = 1e-13
+    Z7Be = 1e-13
+
+    # Number of integration points
+    N = 100000
+
+    A = project1(L_0, M_0, 0.54*R_sun, 3.672*rho_star_avg, 1.9494e7, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
+    r, M, L, rho, P, T, E = A.integrate(-1.e26, N, dynamic_step_size = True)
+    A.plot(M, r, L, T, rho)
+    
+    def least_square(no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm):
+        """
+        This function performes a least square method
+        It takes the arguments for the min and max values of R_0, rho_0 and T_0 where no_values is
+        the number of points in each list. It also takes the arguments number of integration 
+        points N and step length dm.
+        The funciton then prints out the sum of the procentages (last_value/first_value) as they 
+        get closer and closer towards zero together with the factor in front  
+        """
+        R_0_list = np.linspace(R_0_min, R_0_max, no_values)      # list of R_0-values
+        rho_0_list = np.linspace(rho_0_min, rho_0_max, no_values)# list of rho_0-values
+        T_0_list = np.linspace(T_0_max, T_0_min, no_values)      # list of T_0-values
         
-# Setting initial parameters in SI-units
-L_sun = 3.846e26        # Sun's Luminosity [W]
-R_sun = 6.96e8          # Sun's radius [m]
-M_sun = 1.989e30        # Sun's mass [kg]
-rho_star_avg = 1.408e3  # Sun's average density [kg m^-3]
+        # Variables to use in the least square method
+        R_0_save = 0
+        rho_0_save = 0
+        T_0_save = 0
+        least = 1e6
 
-#Setting initial parameters
-L_0 = 1.0*L_sun
-R_0 = 0.72*R_sun
-M_0 = 0.8*M_sun
-rho_0 =5.1*rho_star_avg
-T_0 = 5.7e6
-
-# Setting mass fractions
-X = 0.7
-Y3 = 1e-10
-Y = 0.29
-Y4 = Y - Y3
-Z = 0.01
-Z7Li = 1e-13
-Z7Be = 1e-13
-
-# Number of integration points
-N = 100000
-
-A = project1(L_0, M_0, 0.54*R_sun, 3.672*rho_star_avg, 1.9494e7, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
-r, M, L, rho, P, T, E = A.integrate(-1.e26, N, dynamic_step_size = True)
-
-def least_square():
-    R_0_list = np.linspace(0.74*R_0, 0.76*R_0, 20)
-    rho_0_list = np.linspace(0.72*rho_0, 0.73*rho_0, 20)
-    T_0_list = np.linspace(3.4*T_0, 3.5*T_0, 20)
-
-    R_0_save = 0
-    rho_0_save = 0
-    T_0_save = 0
-    least = 1e6
-
-    for i in range(len(R_0_list)):
-        R_01 = R_0_list[i]
-        for j in range(len(rho_0_list)):
-            rho_01 = rho_0_list[j]
-            for k in range(len(T_0_list)):
-                T_01 = T_0_list[k]
-                A = project1(L_0, M_0, R_01, rho_01, T_01, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
-                #M, r, V, P, L, T, rho, E = A.integrate(-1e26, N)
-                L_lim, M_lim, R_lim = A.integrate(-1e26, N)
-                if (L_lim + M_lim + R_lim < least):
-                    R_0_save = R_01
-                    rho_0_save = rho_01
-                    T_0_save = T_01
-                    least = L_lim + M_lim + R_lim
-                    print "Least values = ", L_lim, M_lim, R_lim
-                    print "Least total value = ", least
-                    print "Factors = ", R_01/R_0, rho_0_save/rho_0, T_0_save/T_0
-                    print " "
-    print least
-    print R_0_save, rho_0_save, T_0_save          
+        for i in range(len(R_0_list)):
+            R_01 = R_0_list[i]
+            for j in range(len(rho_0_list)):
+                rho_01 = rho_0_list[j]
+                for k in range(len(T_0_list)):
+                    T_01 = T_0_list[k]
+                    # Integrating through the class
+                    A = project1(L_0, M_0, R_01, rho_01, T_01, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
+                    r, M, L, rho, P, T, E = A.integrate(-dm, N)
+                    L_lim = L[-1]/L[0]
+                    M_lim = M[-1]/M[0]
+                    R_lim = r[-1]/r[0]
+                    if (L_lim + M_lim + R_lim < least):
+                        # Checking if the new value is a better fit than the last
+                        R_0_save = R_01
+                        rho_0_save = rho_01
+                        T_0_save = T_01
+                        least = L_lim + M_lim + R_lim
+                        print "Least seperate values = ", L_lim, M_lim, R_lim
+                        print "Least total value = ", least
+                        print "Parameters used = ", R_0_save, rho_0_save, T_0_save
+                        print " "
