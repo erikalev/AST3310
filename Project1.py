@@ -40,12 +40,20 @@ class project1:
         R = np.log10(rho/((T/1e6)**3))             # As defined by Appendix D
         T = np.log10(T)        
         
-        if ((T < 3.75) or (T > 8.7)):
-            print "You're outside the interpolation area. Chose smarter T-values dumb nuts!"
-            sys.exit()
-        if ((R < -8.0) or (R > 1.0)):
-            print "You're outside the interpolation area. Chose smarter R-values dumb nuts!"            
-            sys.exit()
+        if (T < 3.75):
+            print "You're outside the interpolation area. Setting T = T_min!"
+            T = 3.75
+
+        elif (T > 8.7):
+            print "You're outside the interpolation area. Setting T = T_max!"
+            T = 8.7
+        elif (R < -8.0): 
+            print "You're outside the interpolation area. Setting R = R_min!"
+            R = -8.0
+        elif (R > 1.0):
+            print "You're outside the interpolation area. Setting R = R_max!"
+            R = 1.0           
+
         return float(10**(self.f(R, T))/10.0)     # Returning the opacity in SI-units
 
     def PP1_chain(self, r33, Q33):
@@ -239,6 +247,8 @@ class project1:
         print "P = ", P
         print "E = ", E
         print "T = ", T
+        print self.find_Pr(T)
+        print "Factrion of Pr = ", self.find_Pr(T)/self.find_P(rho, T)
         print "L/L_0= ", L/self.L_0
         print "M/M_0= ", M/self.M_0
         print "R/R_0= ", r/self.R_0
@@ -274,7 +284,9 @@ class project1:
 
         dm1 = dm                  # controle variable which is used to set dm back to it's original value
         for i in range(N-1):
+            # updating the opacity value
             K = self.opacity(T[i], rho[i])          
+
             if dynamic_step_size == True:            
                 dm = self.DSS(dm, dm1, r[i], rho[i], M[i], E[i], L[i], T[i], K, P[i])
 
@@ -284,14 +296,13 @@ class project1:
                 M_lim = M[i-1]/self.M_0
                 R_lim = r[i-1]/self.R_0
 
-                print "Negatives values were detected"
-                print "i = ", i
-                print "L/L_0 = ", L_lim
-                print "M/M_0 = ", M_lim
-                print "R/R_0 = ", R_lim
+                #print "Negatives values were detected"
+                #print "i = ", i
+                #print "L/L_0 = ", L_lim
+                #print "M/M_0 = ", M_lim
+                #print "R/R_0 = ", R_lim
                 break        
             
-            # updating the opacity value
 
             # Euler solvers
             M[i+1] = M[i] + dm
@@ -307,7 +318,6 @@ class project1:
             # Printing out the values with an appropriate interval         
             if (i%100==0):
                 self.print_int(i, dm, rho[i], L[i], M[i], r[i], P[i], E[i], T[i])                                
-
         return r[:i], M[:i], L[:i], rho[:i], P[:i], T[:i], E[:i]
         
 if __name__ == "__main__":        
@@ -333,13 +343,28 @@ if __name__ == "__main__":
     Z7Li = 1e-13
     Z7Be = 1e-13
 
+    """
+    Least seperate values =  0.00108423995069 0.0253451173755 0.00874029426486
+    Least total value =  0.0351696515911
+    Parameters used =  0.4055 0.396 0.8713
+    """
+
     # Number of integration points
     N = 100000
-
-    A = project1(L_0, M_0, 0.54*R_sun, 3.672*rho_star_avg, 1.9494e7, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
-    r, M, L, rho, P, T, E = A.integrate(-1.e26, N, dynamic_step_size = True)
+    #0.4 0.4 0.868421052632
+    A = project1(L_0, M_0, 0.4055*R_sun, 2.0196*rho_star_avg, 4.96584e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
+    r, M, L, rho, P, T, E = A.integrate(-1e26, N, dynamic_step_size = True)
+    plt.plot(r/r[0], T/T[0], r/r[0], L/L[0])
+    plt.legend(["Temperature", "Luminosity"])
+    plt.xlabel("$R/R_0$")
+    plt.ylabel("last value/first value")
+    plt.show()
+    plt.plot(r/r[0], np.log10(E/E[0]), r/r[0], np.log10(rho/rho[0]), r/r[0], np.log10(P/P[0]))    
+    plt.legend(["Energy", "Density", "Pressure"])
+    plt.xlabel("$R/R_0$")
+    plt.ylabel("log10(last value/first value)")
+    plt.show()
     A.plot(M, r, L, T, rho)
-    
     def least_square(no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm):
         """
         This function performes a least square method
@@ -351,8 +376,8 @@ if __name__ == "__main__":
         """
         R_0_list = np.linspace(R_0_min, R_0_max, no_values)      # list of R_0-values
         rho_0_list = np.linspace(rho_0_min, rho_0_max, no_values)# list of rho_0-values
-        T_0_list = np.linspace(T_0_max, T_0_min, no_values)      # list of T_0-values
-        
+        T_0_list = np.linspace(T_0_min, T_0_max, no_values)      # list of T_0-values
+
         # Variables to use in the least square method
         R_0_save = 0
         rho_0_save = 0
@@ -367,7 +392,7 @@ if __name__ == "__main__":
                     T_01 = T_0_list[k]
                     # Integrating through the class
                     A = project1(L_0, M_0, R_01, rho_01, T_01, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
-                    r, M, L, rho, P, T, E = A.integrate(-dm, N)
+                    r, M, L, rho, P, T, E = A.integrate(dm, N, dynamic_step_size = True)
                     L_lim = L[-1]/L[0]
                     M_lim = M[-1]/M[0]
                     R_lim = r[-1]/r[0]
@@ -381,3 +406,19 @@ if __name__ == "__main__":
                         print "Least total value = ", least
                         print "Parameters used = ", R_0_save, rho_0_save, T_0_save
                         print " "
+    #least_square(5, 0.404*R_sun, 0.406*R_sun, 0.394*5.1*rho_star_avg, 0.396*5.1*rho_star_avg, 0.87120*5.7e6, 0.87130*5.7e6, N, -1e26)
+
+    #least_square(10, 0.9*R_0, 1.1*R_0, 0.8*5.1*rho_star_avg, 5.1*rho_star_avg, 0.8*5.7e6, 1.1*5.7e6, N, 1e26)
+    #no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm
+
+"""
+Least seperate values =  0.00322144428578 0.0237556561087 0.0199626881452
+Least total value =  0.0469397885397
+Parameters used =  0.4 0.4 0.868421052632
+"""
+"""
+Least seperate values =  0.00144950946141 0.0251382604325 0.00442702940956
+Least total value =  0.0310147993035
+Parameters used =  0.405 0.395 0.87125
+"""
+
