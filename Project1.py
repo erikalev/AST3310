@@ -136,9 +136,10 @@ class project1:
                     # Production of He4 is goverened by the rate of production for Li7
                     E+= self.PP2_chain(r34, re7, re7, Q34, Q17, Qe7)*MeVToJoule
             else:
-                # Production of Li7 is goverent by the rate of production for Be7
+                # Production of Li7 is goverend by the rate of production for Be7
                 E+= self.PP2_chain(r34, r34, r34, Q34, Q17, Qe7)*MeVToJoule
         else:
+            # All energy production is goverened by the rate of productino for Deuterium
             E += self.PP1_chain(rpp, Q33)*MeVToJoule
             E+= self.PP2_chain(rpp, rpp, rpp, Q34, Q17, Qe7)*MeVToJoule
 
@@ -290,17 +291,41 @@ class project1:
             if dynamic_step_size == True:            
                 dm = self.DSS(dm, dm1, r[i], rho[i], M[i], E[i], L[i], T[i], K, P[i])
 
-            # If-test to check that we dont achieve any negative values in M, r or L
-            if ((M[i] < 0) or (r[i] < 0) or (L[i] < 0)) :
+            # Tests to check that we dont achieve any negative values in M, r or L
+            if (M[i] < 0):
                 L_lim = L[i-1]/self.L_0
                 M_lim = M[i-1]/self.M_0
                 R_lim = r[i-1]/self.R_0
 
-                #print "Negatives values were detected"
-                #print "i = ", i
-                #print "L/L_0 = ", L_lim
-                #print "M/M_0 = ", M_lim
-                #print "R/R_0 = ", R_lim
+                print "Negative mass achieved"
+                print "i = ", i
+                print "L/L_0 = ", L_lim
+                print "M/M_0 = ", M_lim
+                print "R/R_0 = ", R_lim
+                break        
+
+            elif (r[i] < 0): 
+                L_lim = L[i-1]/self.L_0
+                M_lim = M[i-1]/self.M_0
+                R_lim = r[i-1]/self.R_0
+
+                print "Negative radius achieved"
+                print "i = ", i
+                print "L/L_0 = ", L_lim
+                print "M/M_0 = ", M_lim
+                print "R/R_0 = ", R_lim
+                break        
+
+            elif (L[i] < 0):
+                L_lim = L[i-1]/self.L_0
+                M_lim = M[i-1]/self.M_0
+                R_lim = r[i-1]/self.R_0
+
+                print "Negative luminosity achieved"
+                print "i = ", i
+                print "L/L_0 = ", L_lim
+                print "M/M_0 = ", M_lim
+                print "R/R_0 = ", R_lim
                 break        
             
 
@@ -318,6 +343,7 @@ class project1:
             # Printing out the values with an appropriate interval         
             if (i%100==0):
                 self.print_int(i, dm, rho[i], L[i], M[i], r[i], P[i], E[i], T[i])                                
+        
         return r[:i], M[:i], L[:i], rho[:i], P[:i], T[:i], E[:i]
         
 if __name__ == "__main__":        
@@ -327,7 +353,7 @@ if __name__ == "__main__":
     M_sun = 1.989e30        # Sun's mass [kg]
     rho_star_avg = 1.408e3  # Sun's average density [kg m^-3]
 
-    #Setting initial parameters
+    #Setting initial parameters for bottom of sun's convection zone 
     L_0 = 1.0*L_sun
     R_0 = 0.72*R_sun
     M_0 = 0.8*M_sun
@@ -343,15 +369,9 @@ if __name__ == "__main__":
     Z7Li = 1e-13
     Z7Be = 1e-13
 
-    """
-    Least seperate values =  0.00108423995069 0.0253451173755 0.00874029426486
-    Least total value =  0.0351696515911
-    Parameters used =  0.4055 0.396 0.8713
-    """
-
     # Number of integration points
     N = 100000
-    #0.4 0.4 0.868421052632
+    #A = project1(L_0, M_0, 0.40*R_sun, 3.25*rho_star_avg, 5.57e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
     A = project1(L_0, M_0, 0.4055*R_sun, 2.0196*rho_star_avg, 4.96584e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
     r, M, L, rho, P, T, E = A.integrate(-1e26, N, dynamic_step_size = True)
     plt.plot(r/r[0], T/T[0], r/r[0], L/L[0])
@@ -365,6 +385,7 @@ if __name__ == "__main__":
     plt.ylabel("log10(last value/first value)")
     plt.show()
     A.plot(M, r, L, T, rho)
+
     def least_square(no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm):
         """
         This function performes a least square method
@@ -406,19 +427,3 @@ if __name__ == "__main__":
                         print "Least total value = ", least
                         print "Parameters used = ", R_0_save, rho_0_save, T_0_save
                         print " "
-    #least_square(5, 0.404*R_sun, 0.406*R_sun, 0.394*5.1*rho_star_avg, 0.396*5.1*rho_star_avg, 0.87120*5.7e6, 0.87130*5.7e6, N, -1e26)
-
-    #least_square(10, 0.9*R_0, 1.1*R_0, 0.8*5.1*rho_star_avg, 5.1*rho_star_avg, 0.8*5.7e6, 1.1*5.7e6, N, 1e26)
-    #no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm
-
-"""
-Least seperate values =  0.00322144428578 0.0237556561087 0.0199626881452
-Least total value =  0.0469397885397
-Parameters used =  0.4 0.4 0.868421052632
-"""
-"""
-Least seperate values =  0.00144950946141 0.0251382604325 0.00442702940956
-Least total value =  0.0310147993035
-Parameters used =  0.405 0.395 0.87125
-"""
-
