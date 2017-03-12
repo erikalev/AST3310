@@ -4,12 +4,17 @@ import matplotlib.pyplot as plt
 import sys
 
 class project1:
-    def __init__(self, L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be):        
+    def __init__(self, L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be):   
         self.R_0 = R_0                          # initial radius
         self.L_0 = L_0                          # initial luminosity
         self.M_0 = M_0                          # initial mass
         self.rho_0 = rho_0                      # initial density
         self.T_0 = T_0                          # initial temperature
+
+        self.L_sun = 3.846e26        # Sun's Luminosity [W]
+        self.R_sun = 6.96e8          # Sun's radius [m]
+        self.M_sun = 1.989e30        # Sun's mass [kg]
+        self.rho_star_avg = 1.408e3  # Sun's average density [kg m^-3]
 
         self.X, self.Y, self.Y3, self.Y4, self.Z, self.Z7Li, self.Z7Be = X, Y, Y3, Y4, Z, Z7Li, Z7Be # initial mass fractions        
         self.c = 299792458                      # Speed of light [m/s]
@@ -29,7 +34,7 @@ class project1:
         logR = data[0,1:]                                           # logR-values
         n_T = len(logT)                                             # Number of logT-values 
         n_R = len(logR)                                             # Number of logR-values
-        self.f = inter.interp2d(logR, logT, data[1:, 1:])           # Performing the interpolation
+        self.f = inter.interp2d(logR, logT, data[1:, 1:], bounds_error = False)           # Performing the interpolation
 
     def opacity(self, T, rho):
         """ Function which takes emperature and density in SI-units and returns the 
@@ -40,34 +45,18 @@ class project1:
         R = np.log10(rho/((T/1e6)**3))             # As defined by Appendix D
         T = np.log10(T)        
         
-        if (T < 3.75):
-            print "You're outside the interpolation area. Setting T = T_min!"
-            T = 3.75
-
-        elif (T > 8.7):
-            print "You're outside the interpolation area. Setting T = T_max!"
-            T = 8.7
-        elif (R < -8.0): 
-            print "You're outside the interpolation area. Setting R = R_min!"
-            R = -8.0
-        elif (R > 1.0):
-            print "You're outside the interpolation area. Setting R = R_max!"
-            R = 1.0           
-
         return float(10**(self.f(R, T))/10.0)     # Returning the opacity in SI-units
 
     def PP1_chain(self, r33, Q33):
         """Last reaction in the PP1 chain. The first 2 reaction are the same
         for both PP1 and PP2 and can therefore be calculated outside this function.
         Takes arguments reaction rates [kg s^-1] and energy produced in unit [MeV] """
-
         return r33*Q33
 
     def PP2_chain(self, r34, r17, re7, Q34, Q17, Qe7):
         """Last three reactions in the PP2 chain. The first 2 reaction are calculated 
         outside this function. Takes arguments reaction rates [kg s^-1] for all three 
         reaction and energy produced in units [MeV] for all three reactions."""
-
         return r34*Q34 + r17*Q17 + re7*Qe7
 
     def energy_produced(self, T, rho):
@@ -187,7 +176,7 @@ class project1:
         ax.plot(M/M[0], T/1e6)
 
         ax = plt.subplot("224")
-        ax.set_ylim(10**0, 10**1)
+        #ax.set_ylim(10**0, 10**1)
         ax.set_xlabel("Mass/$M_0$")
         ax.set_ylabel("$\\rho/rho_0$")
         ax.plot(M/M[0], rho/rho[0])
@@ -248,12 +237,57 @@ class project1:
         print "P = ", P
         print "E = ", E
         print "T = ", T
-        print self.find_Pr(T)
-        print "Factrion of Pr = ", self.find_Pr(T)/self.find_P(rho, T)
+        print " "
         print "L/L_0= ", L/self.L_0
         print "M/M_0= ", M/self.M_0
         print "R/R_0= ", r/self.R_0
         print " "
+   
+    def test_negative_values(self, M, r, L, i):
+        if (M[i] < 0):
+            L_lim = L[i-1]/self.L_0
+            M_lim = M[i-1]/self.M_0
+            R_lim = r[i-1]/self.R_0
+
+            print "Negative mass achieved"
+            print "i = ", i
+            print "L/L_0 = ", L_lim
+            print "M/M_0 = ", M_lim
+            print "R/R_0 = ", R_lim
+            negative_values = True
+            return negative_values        
+
+        elif (r[i] < 0): 
+            L_lim = L[i-1]/self.L_0
+            M_lim = M[i-1]/self.M_0
+            R_lim = r[i-1]/self.R_0
+
+            print "Negative radius achieved"
+            print "i = ", i
+            print "L/L_0 = ", L_lim
+            print "M/M_0 = ", M_lim
+            print "R/R_0 = ", R_lim
+            negative_values = True
+            return negative_values        
+
+        elif (L[i] < 0):
+            L_lim = L[i-1]/self.L_0
+            M_lim = M[i-1]/self.M_0
+            R_lim = r[i-1]/self.R_0
+
+            print "Negative luminosity achieved"
+            print "i = ", i
+            print "L/L_0 = ", L_lim
+            print "M/M_0 = ", M_lim
+            print "R/R_0 = ", R_lim
+            negative_values = True
+            return negative_values        
+        else:
+            negative_values = False
+            return negative_values        
+        
+
+
 
     def integrate(self, dm, N, dynamic_step_size = False):
         """ Method which takes the the mass step length dm, number of integration 
@@ -284,6 +318,8 @@ class project1:
         P[0] = self.find_P(self.rho_0, self.T_0)
 
         dm1 = dm                  # controle variable which is used to set dm back to it's original value
+        negative_values = False
+
         for i in range(N-1):
             # updating the opacity value
             K = self.opacity(T[i], rho[i])          
@@ -292,43 +328,9 @@ class project1:
                 dm = self.DSS(dm, dm1, r[i], rho[i], M[i], E[i], L[i], T[i], K, P[i])
 
             # Tests to check that we dont achieve any negative values in M, r or L
-            if (M[i] < 0):
-                L_lim = L[i-1]/self.L_0
-                M_lim = M[i-1]/self.M_0
-                R_lim = r[i-1]/self.R_0
-
-                print "Negative mass achieved"
-                print "i = ", i
-                print "L/L_0 = ", L_lim
-                print "M/M_0 = ", M_lim
-                print "R/R_0 = ", R_lim
-                break        
-
-            elif (r[i] < 0): 
-                L_lim = L[i-1]/self.L_0
-                M_lim = M[i-1]/self.M_0
-                R_lim = r[i-1]/self.R_0
-
-                print "Negative radius achieved"
-                print "i = ", i
-                print "L/L_0 = ", L_lim
-                print "M/M_0 = ", M_lim
-                print "R/R_0 = ", R_lim
-                break        
-
-            elif (L[i] < 0):
-                L_lim = L[i-1]/self.L_0
-                M_lim = M[i-1]/self.M_0
-                R_lim = r[i-1]/self.R_0
-
-                print "Negative luminosity achieved"
-                print "i = ", i
-                print "L/L_0 = ", L_lim
-                print "M/M_0 = ", M_lim
-                print "R/R_0 = ", R_lim
-                break        
+            if self.test_negative_values(M, r, L, i) == True:
+                break
             
-
             # Euler solvers
             M[i+1] = M[i] + dm
             r[i+1] = r[i] + dm*1.0/(4*np.pi*r[i]**2*rho[i])
@@ -339,11 +341,11 @@ class project1:
             # Updating density and energy 
             rho[i+1] = self.find_rho(P[i+1], T[i+1])
             E[i+1] = self.energy_produced(T[i+1], rho[i+1])/rho[i+1]
- 
+
             # Printing out the values with an appropriate interval         
             if (i%100==0):
                 self.print_int(i, dm, rho[i], L[i], M[i], r[i], P[i], E[i], T[i])                                
-        
+
         return r[:i], M[:i], L[:i], rho[:i], P[:i], T[:i], E[:i]
         
 if __name__ == "__main__":        
@@ -359,7 +361,6 @@ if __name__ == "__main__":
     M_0 = 0.8*M_sun
     rho_0 =5.1*rho_star_avg
     T_0 = 5.7e6
-
     # Setting mass fractions
     X = 0.7
     Y3 = 1e-10
@@ -371,9 +372,12 @@ if __name__ == "__main__":
 
     # Number of integration points
     N = 100000
-    #A = project1(L_0, M_0, 0.40*R_sun, 3.25*rho_star_avg, 5.57e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
-    A = project1(L_0, M_0, 0.4055*R_sun, 2.0196*rho_star_avg, 4.96584e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
+    
+    # original values
+    """    
+    A = project1(L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
     r, M, L, rho, P, T, E = A.integrate(-1e26, N, dynamic_step_size = True)
+    
     plt.plot(r/r[0], T/T[0], r/r[0], L/L[0])
     plt.legend(["Temperature", "Luminosity"])
     plt.xlabel("$R/R_0$")
@@ -385,7 +389,24 @@ if __name__ == "__main__":
     plt.ylabel("log10(last value/first value)")
     plt.show()
     A.plot(M, r, L, T, rho)
-
+    sys.exit()
+    """
+    # Calling the class and the integrate function
+    A = project1(L_0, M_0, 0.4055*R_sun, 2.0196*rho_star_avg, 4.96584e6, X, Y, Y3, Y4, Z, Z7Li, Z7Be)
+    r, M, L, rho, P, T, E = A.integrate(-1e26, N)#, dynamic_step_size = True)
+    
+    plt.plot(r/r[0], T/T[0], r/r[0], L/L[0])
+    plt.legend(["Temperature", "Luminosity"])
+    plt.xlabel("$R/R_0$")
+    plt.ylabel("last value/first value")
+    plt.show()
+    plt.plot(r/r[0], np.log10(E/E[0]), r/r[0], np.log10(rho/rho[0]), r/r[0], np.log10(P/P[0]))    
+    plt.legend(["Energy", "Density", "Pressure"])
+    plt.xlabel("$R/R_0$")
+    plt.ylabel("log10(last value/first value)")
+    plt.show()
+    A.plot(M, r, L, T, rho)
+    
     def least_square(no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm):
         """
         This function performes a least square method
