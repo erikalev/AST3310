@@ -6,26 +6,26 @@ from numpy.polynomial import Polynomial as P
 
 class project2:
     def __init__(self, L_0, M_0, R_0, rho_0, T_0, X, Y, Y3, Y4, Z, Z7Li, Z7Be):   
-        self.R_0 = R_0                          # initial radius
-        self.L_0 = L_0                          # initial luminosity
-        self.M_0 = M_0                          # initial mass
-        self.rho_0 = rho_0                      # initial density
-        self.T_0 = T_0                          # initial temperature
+        self.R_0 = R_0                              # initial radius
+        self.L_0 = L_0                              # initial luminosity
+        self.M_0 = M_0                              # initial mass
+        self.rho_0 = rho_0                          # initial density
+        self.T_0 = T_0                              # initial temperature
 
-        self.L_sun = 3.846e26        # Sun's Luminosity [W]
-        self.R_sun = 6.96e8          # Sun's radius [m]
-        self.M_sun = 1.989e30        # Sun's mass [kg]
-        self.rho_star_avg = 1.408e3  # Sun's average density [kg m^-3]
+        self.L_sun = 3.846e26                       # Sun's Luminosity [W]
+        self.R_sun = 6.96e8                         # Sun's radius [m]
+        self.M_sun = 1.989e30                       # Sun's mass [kg]
+        self.rho_star_avg = 1.408e3                 # Sun's average density [kg m^-3]
 
         self.X, self.Y, self.Y3, self.Y4, self.Z, self.Z7Li, self.Z7Be = X, Y, Y3, Y4, Z, Z7Li, Z7Be # initial mass fractions        
-        self.c = 299792458                      # Speed of light [m/s]
-        self.sigma = 5.670367e-8                # Stefan-Boltzmann constant [J m^-2 s^-1 K^-4]
-        self.k_b = 1.38064852e-23               # Boltzmann constant [m^2 kg s^-2 K^-1]
-        self.u = 1.0/(2*X + 3.0/4.0*Y + Z/2.0)  # Mean molecular weight "dimensionless"
-        self.m_u = 1.6605e-27                   # Atomic mass unit "dimensionless"
-        self.G = 6.67408e-11                    # Gravitational constant [m^3 kg-1 s-2]
-        self.Cp = 5./2.*self.k_b/(self.u*self.m_u)
-        self.delta = 1
+        self.c = 299792458                          # Speed of light [m/s]
+        self.sigma = 5.670367e-8                    # Stefan-Boltzmann constant [J m^-2 s^-1 K^-4]
+        self.k_b = 1.38064852e-23                   # Boltzmann constant [m^2 kg s^-2 K^-1]
+        self.u = 1.0/(2*X + 3.0/4.0*Y + Z/2.0)      # Mean molecular weight "dimensionless"
+        self.m_u = 1.6605e-27                       # Atomic mass unit "dimensionless"
+        self.G = 6.67408e-11                        # Gravitational constant [m^3 kg-1 s-2]
+        self.Cp = 5./2.*self.k_b/(self.u*self.m_u)  # Specific heta at constant pressure
+        self.delta = 1                              # Ideal gass value for delta
 
         """ Performing the linear 2D interpolation o6f the opacity values. These will be used 
         later on but performing the interpolation in the innit function allows us to just 
@@ -113,54 +113,30 @@ class project2:
         E = 0
         PP1_E = 0
         PP2_E = 0
+
         #First 2 reaction in PP1 and PP2 combined
         First_energy_step = rpp*(Qpp + Qpd)*MeVToJoule
-        E += First_energy_step
+
         # PP1 and PP2 Chain
-        
         if (2*r33 + r34) > rpp:
+            # Rescaling to avoid to much use of elements
             scale = rpp/(2*r33 + r34)
             r33 = scale*r33
             r34 = scale*r34
 
         if re7 > r34:
+            # Re7 reaction rate is determined by the R34 reaction rate
             re7 = r34
 
         if r17 > re7:
+            # R17 reaction rate is determined by the Re7 reaction rate
             r17 = re7
-        
-        PP1_E = self.PP1_chain(r33, Q33)*MeVToJoule
-        PP2_E += self.PP2_chain(r34, r17, re7, Q34, Q17, Qe7)*MeVToJoule
+
+        # Adding the correspoding energies to each chain 
+        PP1_E = self.PP1_chain(r33, Q33)*MeVToJoule + First_energy_step*r33/(r33 + r34)
+        PP2_E += self.PP2_chain(r34, r17, re7, Q34, Q17, Qe7)*MeVToJoule + First_energy_step*r34/(r33 + r34)
         E += PP1_E + PP2_E 
-
-        """
-        if (rpp > 2*r33 + r34):
-            # Do we produce more He3 than we consume            
-            PP1_E = self.PP1_chain(r33, Q33)*MeVToJoule
-            E += PP1_E
-            if (r34 > re7):
-            # Do we produce more Be7 than we consume
-                if (re7 > r17):
-                    # Do we produce more Li7 than we consume
-                    PP2_E += self.PP2_chain(r34, r17, re7, Q34, Q17, Qe7)*MeVToJoule                            
-                    E += PP2_E
-
-                else:
-                    # Production of He4 is goverened by the rate of production for Li7
-                    PP2_e = self.PP2_chain(r34, re7, re7, Q34, Q17, Qe7)*MeVToJoule
-                    E += PP2_E
-            else:
-                # Production of Li7 is goverend by the rate of production for Be7
-                PP2_E = self.PP2_chain(r34, r34, r34, Q34, Q17, Qe7)*MeVToJoule
-                E += PP2_E        
-        else:
-            # All energy production is goverened by the rate of productino for Deuterium
-            scale = rpp/(2*r33 + r34)
-            PP1_E = self.PP1_chain(rpp, Q33)*MeVToJoule
-                        
-            PP2_E = self.PP2_chain(r34*scale, r17*scale, re7*scale, Q34, Q17, Qe7)*MeVToJoule                
-            E += PP1_E + PP2_E
-        """
+      
         return E, PP1_E, PP2_E
 
     def find_Pr(self, T):
@@ -183,7 +159,6 @@ class project2:
             account an ideal gas and P = P_gass + P_radiation 
         """ 
         return rho/(self.u*self.m_u)*self.k_b*T + self.find_Pr(T)
-
 
     def plot(self, M, r, L, T, rho):        
         """Method which plots some of the achieved values"""
@@ -228,15 +203,21 @@ class project2:
         drdm = 1.0/(4*np.pi*r**2*rho)
         dPdm = -self.G*M/(4*np.pi*r**4)
         dLdm = E
+
+        # No convection
         if dTdm == 0:
             dTdm =  -3*K*L/(256*np.pi**2*self.sigma*r**4*T**3)    
+
         test = np.zeros(5)
         test[0] = abs(p*r/drdm)
         test[1] = abs(p*P/dPdm)
         test[2] = abs(p*L/dLdm)
         test[3] = abs(p*T/dTdm)
         test[4] = abs(p*M)
+
         dm = -min(test)        
+
+        # Resetting initial dm to avoid to large values
         if dm < dm1:
             dm = dm1
 
@@ -259,8 +240,8 @@ class project2:
         print "R/R_0= ", r/self.R_0
         print " "
     
-
     def test_small_enough_values(self, L, M, r):
+        """ Method which ends the programme when small enough values of L, M and r is achieved """
         small_enough_values = False
         if (L/self.L_0 < 0.049):
             if (M/self.M_0 < 0.049):
@@ -269,8 +250,10 @@ class project2:
          
         return small_enough_values
 
-
     def test_negative_values(self, M, r, L, i):
+        """ Method which checks for negative values when running the code. This is only activated 
+            when the DDS method (dynamic step size) is not """
+
         if (M[i] < 0):
             L_lim = L[i-1]/self.L_0
             M_lim = M[i-1]/self.M_0
@@ -312,9 +295,7 @@ class project2:
         else:
             negative_values = False
             return negative_values        
-        
-
-    
+            
     def nabla_ad(self, P, delta, T, rho):
         """Method which returns the temperature gradient for the 
            adiabatic parcel """
@@ -357,6 +338,34 @@ class project2:
         Fr  = self.Fr(T, K, M, rho, Hp, nabla_star)
         return Fc, Fr
 
+    def outer_convection_restriction(self, i, N, Fc_frac_m1, Fc_frac_i, r_i, r_0):
+        """ Method which makes sure the outer convection zone cover atleast 15% 
+            of the total radius"""
+        if i < N/2:
+            if Fc_frac_m1 != 0:
+                if Fc_frac_i == 0:
+                    if r_i/r_0 > 0.85:
+                        return True
+                    else:
+                        return False
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    def T_r_restriction(self, r_i, r_0, T_i, T_0):            # Restriction to the T(r) plot      
+        """ Method which makes sure that the temperature rises steadily and not 
+            all at once """
+        if r_i/r_0 < 0.3:
+            if T_i/T_i < 0.1:
+                return True
+            else:
+                return False
+        else:
+            return False
+
     def integrate(self, dm, N, dynamic_step_size = False):
         """ Method which takes the the mass step length dm, number of integration 
             points N and the dynamic step size boolean and integrates over N dm-steps. 
@@ -394,14 +403,13 @@ class project2:
         P[0] = self.find_P(self.rho_0, self.T_0)
         PP1_E[0] = self.energy_produced(self.T_0, self.rho_0)[1]
         PP2_E[0] = self.energy_produced(self.T_0, self.rho_0)[2]
-
         PP1_frac[0] = PP1_E[0]/(PP1_E[0] + PP2_E[0])
         PP2_frac[0] = PP2_E[0]/(PP1_E[0] + PP2_E[0])
 
-        dm1 = dm                  # controle variable which is used to set dm back to it's original value
+        dm1 = dm                        # controle variable which is used to set dm back to it's original value
 
-        negative_values = False
-        small_enough_values = False
+        negative_values = False         # Boolean variable used to check for negative variables when running the code 
+        small_enough_values = False     # Boolean variable used to check for small enough variables when running the code
 
         for i in range(N-1):
             # updating the opacity value
@@ -413,12 +421,10 @@ class project2:
             Hp = P[i]/(g*rho[i])    
             lm = Hp*alpha
             U = 64*self.sigma*T[i]**3/(3*K*rho[i]**2*self.Cp)*np.sqrt(Hp/(g*self.delta))
-            
             # Temperature gradients
             nabla_ad[i] = self.nabla_ad(P[i], self.delta, T[i], rho[i])
             nabla_st[i] =  self.nabla_st(L[i], K, rho[i], Hp, r[i], T[i])
             nabla_star[i] = self.nabla_star(U, lm, nabla_ad[i], nabla_st[i])
-
             if nabla_st[i] > nabla_ad[i]:
                 """If true then we take convection into account """ 
                 Fc, Fr = self.calculate_convection(U, lm, nabla_ad[i], nabla_st[i], nabla_star[i], rho[i], T[i], g, Hp, K, M[i], P[i], r[i])
@@ -432,32 +438,23 @@ class project2:
                 dTdm = 0
                 Fc_frac[i] = 0
                 Fr_frac[i] = 1
-            
+                        
             # Tests to check that we dont achieve any negative values in M, r or L            
             if self.test_negative_values(M, r, L, i) == True:
                 break
             
             # Restriction for the outer convection layer
-            """
-            if i < N/2:
-                if Fc_frac[i-1] != 0:
-                    if Fc_frac[i] == 0:
-                        if r[i]/r[0] > 0.85:
-                            break
-            """
-
-            # Restriction to the T(r) plot
-            """
-            if r[i]/r[0] < 0.3:
-                if T[i]/T[0] < 0.1:
-                    break
-            """
-         
-            # Restriction of the value of the resulting variables
-            """         
-            if self.test_small_enough_values(L[i], M[i], r[i]) == True:                
+            if self.outer_convection_restriction(i, N, Fc_frac[i-1], Fc_frac[i], r[i], r[0]) == True:
                 break
-            """
+            
+            # Restriction to the T(r) plot
+            if self.T_r_restriction(r[i], r[0], T[i], T[0]) == True:
+                break         
+            
+            # Restriction of the value of the resulting variables         
+            #if self.test_small_enough_values(L[i], M[i], r[i]) == True:                
+            #    break
+            
             if dynamic_step_size == True:            
                 dm, dTdm = self.DSS(dm, dm1, r[i], rho[i], M[i], E[i], L[i], T[i], K, P[i], dTdm)
             
@@ -466,11 +463,9 @@ class project2:
             r[i+1] = r[i] + dm*1.0/(4*np.pi*r[i]**2*rho[i])
 
             # Possible restriction of the lowest allowed radius fraction
-            """
-            if r[i+1]/r[0] < 0.04:
-                break
-            """
-
+            #if r[i+1]/r[0] < 0.04:
+            #    break
+            
             P[i+1] = P[i] + dm*((-self.G*M[i])/(4*np.pi*r[i]**4))
             L[i+1] = L[i] + E[i]*dm
             T[i+1] = T[i] + dm*((-3*K*L[i])/(256*np.pi**2*self.sigma*r[i]**4*T[i]**3))
@@ -491,11 +486,10 @@ class project2:
             PP1_frac[i+1] = PP1_E[i+1]/(PP1_E[i+1] + PP2_E[i+1])
             PP2_frac[i+1] = PP2_E[i+1]/(PP1_E[i+1] + PP2_E[i+1])
 
-
             # Printing out the values with an appropriate interval         
-            if (i%1==0):
-                self.print_int(i, dm, rho[i], L[i], M[i], r[i], P[i], E[i], T[i])                                
-    
+            if (i%50==0):
+                self.print_int(i, dm, rho[i], L[i], M[i], r[i], P[i], E[i], T[i]) 
+                               
         return r[:i], M[:i], L[:i], rho[:i], P[:i], T[:i], E[:i], nabla_star[:i], nabla_st[:i], nabla_ad[:i], PP1_E[:i], PP2_E[:i], PP1_frac[:i], PP2_frac[:i], Fc_frac[:i], Fr_frac[:i]
         
 if __name__ == "__main__":        
@@ -560,19 +554,26 @@ if __name__ == "__main__":
     circle4 = plt.Circle((0, 0), 0, color='blue')
     plt.legend([circle1, circle2, circle3, circle4], ["Convection outside core", "Radiation outside core", "Radiation inside core", "Convection inside core"], prop={'size':8})
     for i in xrange(len(r)):
-        if i%10 == 0:        
+        if i%10 == 0:
+            # Only plot circle every 10 step        
             if nabla_st[i] > nabla_ad[i]:
+                # Convection
                 if L[i]/L[0] < 0.995:
+                    # Inside core
                     circle1 = plt.Circle((0, 0), r[i]/r[0], color='blue', fill=False)
                     ax.add_artist(circle1)
                 else:
+                    # Outside core
                     circle2 = plt.Circle((0, 0), r[i]/r[0], color='red', fill=False)
                     ax.add_artist(circle2)
             else:
+                # No convection
                 if L[i]/L[0] < 0.995:
+                    # Inside core
                     circle3 = plt.Circle((0, 0), r[i]/r[0], color='cyan', fill=False)
                     ax.add_artist(circle3)
                 else:
+                    # Outside core
                     circle4 = plt.Circle((0, 0), r[i]/r[0], color='yellow', fill=False)
                     ax.add_artist(circle4)
             plt.hold("on")
@@ -607,8 +608,6 @@ if __name__ == "__main__":
     plt.ylabel("$M/M_0$)")
     plt.show()
 
-    #A.plot(M, r, L, T, rho)
-    
     def least_square(no_values, R_0_min, R_0_max, rho_0_min, rho_0_max, T_0_min, T_0_max, N, dm):
         """
         This function performes a least square method
@@ -640,14 +639,4 @@ if __name__ == "__main__":
                     L_lim = L[-1]/L[0]
                     M_lim = M[-1]/M[0]
                     R_lim = r[-1]/r[0]
-                    if (L_lim + M_lim + R_lim <= least):
-                        # Checking if the new value is a better fit than the last
-                        R_0_save = R_01
-                        rho_0_save = rho_01
-                        T_0_save = T_01
-                        least = L_lim + M_lim + R_lim
-                        print "Least seperate values = ", L_lim, M_lim, R_lim
-                        print "Least total value = ", least
-                        print "Parameters used = ", R_0_save/R_sun, rho_0_save/(1.42e-7*rho_star_avg), T_0_save/5770
-                        print " "
     #least_square(10, 0.85*R_sun, 1.2*R_sun, 50.*rho_0,80*rho_0, 0.85*5770, 1.2*5770, N, dm=-1e26)
